@@ -8,6 +8,6 @@ routes.get("/balance", AccountController.getBalance);
 
 routes.post("/reset", AccountController.reset);
 
-routes.post("/event", AccountController.store);
+routes.post("/event", (req, res) => AccountController.event(req,res));
 
 module.exports = routes;

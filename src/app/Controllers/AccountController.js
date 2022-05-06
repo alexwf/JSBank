@@ -1,27 +1,7 @@
 const Account = require('../Models/Account');
-let accounts = [
-    {
-        "100": {
-            "id": "100",
-            "balance": 12
-        }
-    },
-    {
-        "101": {
-            "id": "101",
-            "balance": 13
-        }
-    },
-    {
-        "103": {
-            "id": "103",
-            "balance": 14
-        }
-    }
-];
+let accounts = [];
 
 class AccountController {
-
     reset(req, res) {
         accounts = [];
         return res.sendStatus(200);
@@ -48,14 +28,53 @@ class AccountController {
         return res.status(404).json(0);
     }
 
-   
+    event(req, res) {
+        const { type, origin, amount, destination } = req.body ;
+        let jsonObj;
 
-    store(req, res) {
-        const { destination, amount } = req.body ;
+        /* ORIGIN */
+        const filterAccountOrigin = accounts.filter(account => {
+            if (typeof account[origin] != "undefined") {
+                if (type == "withdraw" || type == "transfer") {
+                    account[origin].balance -= amount;
+                    return account;
+                }
+            }
+        });
+
+        /* DESTINATION */
+        const filterAccount = accounts.filter(account => {
+            if (typeof account[destination] != "undefined") {
+                account[destination].balance += amount;
+                return account;
+            }
+        });
         
-        let account = new Account(destination, amount);
-        accounts.push({[destination]:account});
-        return res.status(201).json({"destination": account});
+        if (filterAccount.length == 0 && (type == "deposit" || type == "transfer")) {
+            let account = new Account(destination, amount);
+            accounts.push({[destination]:account});
+            filterAccount.push({[destination]: {
+                id: destination, balance: amount
+            }});
+        }
+
+        if (type == "deposit") {
+            jsonObj = {
+                destination: filterAccount[0][destination]
+            };
+        } else if (type == "withdraw" && filterAccountOrigin[0] != undefined) {
+            jsonObj = {
+                origin: filterAccountOrigin[0][origin]
+            };
+        } else if (type == "transfer" && filterAccountOrigin[0] != undefined) {
+            jsonObj = {
+                origin: filterAccountOrigin[0][origin],
+                destination: filterAccount[0][destination]
+            };
+        } else {
+            return res.status(404).json(0); 
+        }        
+        return res.status(201).json(jsonObj);        
     }
 }
 
