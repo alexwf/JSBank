@@ -58,12 +58,13 @@ class AccountController {
             type,
             "origin"
         );
-        
+
         const filterAccountDestination = this.executeEvent(
             destination,
             amount,
             type,
-            "destination"
+            "destination",
+            filterAccountOrigin.length > 0
         );
 
         if (
@@ -89,7 +90,7 @@ class AccountController {
     /**
      * @returns object | from account changed
      */
-    executeEvent(id, amount, type, where) {
+    executeEvent(id, amount, type, where, originExist) {
         return accounts.filter(account => {
             if (typeof account[id] != "undefined") {
                 if (
@@ -97,7 +98,7 @@ class AccountController {
                     && (type == "withdraw" || type == "transfer")
                 ) {
                     account[id].balance -= amount;
-                } else {
+                } else if (originExist || type == "deposit"){
                     account[id].balance += amount;
                 }
                 return account;
