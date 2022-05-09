@@ -4,9 +4,9 @@ let accounts = [];
 class AccountController {
     /**
      * Home page
-     * @returns json welcome to jsbank and status 200
+     * @returns json | welcome to jsbank and status 200
      */
-    index (req, res) {
+    index(req, res) {
         return res.status(200).json("Welcome to JSBank");
     }
 
@@ -20,8 +20,7 @@ class AccountController {
     }
 
     /**
-     * Return the balance
-     * @returns json balance and status 200 or 404
+     * @returns json | balance and status 200 or 404
      */
     getBalance(req, res) {
         const { account_id } = req.query;
@@ -34,7 +33,7 @@ class AccountController {
 
         //Get only the filtered account
         const filterAccount = accounts.filter(account => {
-            if (typeof account[account_id] != "undefined" ) {
+            if (typeof account[account_id] != "undefined") {
                 balance = account[account_id].balance;
                 return account;
             }
@@ -48,59 +47,103 @@ class AccountController {
     }
 
     /**
-     * Create transactions events (req: deposit, withdraw, transfer)
-     * @returns json and status 201 or 404
+     * @returns json | object from account changed (deposit, withdraw, transfer) and status 201 or 404
      */
     event(req, res) {
-        const { type, origin, amount, destination } = req.body ;
-        let jsonObj;
+        const { type, origin, amount, destination } = req.body;
 
-        //Origin
-        const filterAccountOrigin = accounts.filter(account => {
-            if (typeof account[origin] != "undefined") {
-                if (type == "withdraw" || type == "transfer") {
-                    account[origin].balance -= amount;
-                    return account;
+        const filterAccountOrigin = this.executeEvent(
+            origin,
+            amount,
+            type,
+            "origin"
+        );
+        
+        const filterAccountDestination = this.executeEvent(
+            destination,
+            amount,
+            type,
+            "destination"
+        );
+
+        if (
+            filterAccountDestination.length == 0
+            && (type == "deposit" || type == "transfer")
+        ) {
+            filterAccountDestination.push(
+                this.createAccount(destination, amount)
+            );
+        }
+
+        const accountObject = {
+            type: type,
+            origin: filterAccountOrigin,
+            destination: filterAccountDestination,
+            idOrigin: origin,
+            idDestination: destination,
+            res
+        };
+        return this.getResponse(accountObject);
+    }
+
+    /**
+     * @returns object | from account changed
+     */
+    executeEvent(id, amount, type, where) {
+        return accounts.filter(account => {
+            if (typeof account[id] != "undefined") {
+                if (
+                    where == "origin"
+                    && (type == "withdraw" || type == "transfer")
+                ) {
+                    account[id].balance -= amount;
+                } else {
+                    account[id].balance += amount;
                 }
-            }
-        });
-
-        //Destination
-        const filterAccount = accounts.filter(account => {
-            if (typeof account[destination] != "undefined") {
-                account[destination].balance += amount;
                 return account;
             }
         });
-        
-        //Create a new account
-        if (filterAccount.length == 0 && (type == "deposit" || type == "transfer")) {
-            let account = new Account(destination, amount);
-            accounts.push({[destination]:account});
-            filterAccount.push({[destination]: {
-                id: destination, balance: amount
-            }});
-        }
+    }
 
-        //Send new balance and status
+    /**
+     * @returns object | new account created
+     */
+    createAccount(destination, amount) {
+        let account = new Account(destination, amount);
+        accounts.push({ [destination]: account });
+        return {
+            [destination]: {
+                id: destination, balance: amount
+            }
+        };
+    }
+
+   /**
+    * @returns object | new balance and status
+    */
+    getResponse(obj) {
+        const { type, origin, destination, idOrigin, idDestination, res } = obj;
+
+        let jsonObj;
+
         if (type == "deposit") {
             jsonObj = {
-                destination: filterAccount[0][destination]
+                destination: destination[0][idDestination]
             };
-        } else if (type == "withdraw" && filterAccountOrigin[0] != undefined) {
+        } else if (type == "withdraw" && origin[0] != undefined) {
             jsonObj = {
-                origin: filterAccountOrigin[0][origin]
+                origin: origin[0][idOrigin]
             };
-        } else if (type == "transfer" && filterAccountOrigin[0] != undefined) {
+        } else if (type == "transfer" && origin[0] != undefined) {
             jsonObj = {
-                origin: filterAccountOrigin[0][origin],
-                destination: filterAccount[0][destination]
+                origin: origin[0][idOrigin],
+                destination: destination[0][idDestination]
             };
         } else {
-            return res.status(404).json(0); 
+            return res.status(404).json(0);
         }
-        return res.status(201).json(jsonObj);        
-    }
+        return res.status(201).json(jsonObj);
+    }    
 }
 
 module.exports = new AccountController();
